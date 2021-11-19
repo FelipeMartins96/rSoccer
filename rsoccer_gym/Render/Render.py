@@ -26,6 +26,7 @@ class RCGymRender:
     def __init__(self, n_robots_blue: int,
                  n_robots_yellow: int,
                  field_params: Field,
+                 n_targets:int = 0,
                  simulator: str = 'vss',
                  width: int = 750,
                  height: int = 650) -> None:
@@ -53,10 +54,12 @@ class RCGymRender:
         '''
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
+        self.n_targets = n_targets
         self.field = field_params
         self.ball: rendering.Transform = None
         self.blue_robots: List[rendering.Transform] = []
         self.yellow_robots: List[rendering.Transform] = []
+        self.targets: List[rendering.Transform] = []
 
         # Window dimensions in pixels
         screen_width = width
@@ -88,6 +91,8 @@ class RCGymRender:
         # add background
         self._add_background()
 
+        self._add_targets()
+
         if simulator == "vss":
             # add field_lines
             self._add_field_lines_vss()
@@ -108,7 +113,7 @@ class RCGymRender:
         del(self.screen)
         self.screen = None
 
-    def render_frame(self, frame: Frame, return_rgb_array: bool = False) -> None:
+    def render_frame(self, frame: Frame, targets: list = [], return_rgb_array: bool = False) -> None:
         '''
         Draws the field, ball and players.
 
@@ -131,6 +136,9 @@ class RCGymRender:
         for i, yellow in enumerate(frame.robots_yellow.values()):
             self.yellow_robots[i].set_translation(yellow.x, yellow.y)
             self.yellow_robots[i].set_rotation(np.deg2rad(yellow.theta))
+
+        for i, target in enumerate(targets):
+            self.targets[i].set_translation(target[0], target[1])
 
         return self.screen.render(return_rgb_array=return_rgb_array)
 
@@ -521,6 +529,8 @@ class RCGymRender:
         # Return the transform class to change robot position
         return robot_transform
 
+    #----------Ball-----------#
+
     def _add_ball(self):
         ball_radius: float = self.field.ball_radius
         ball_transform:rendering.Transform = rendering.Transform()
@@ -538,3 +548,26 @@ class RCGymRender:
         self.screen.add_geom(ball_outline)
         
         self.ball = ball_transform
+
+    #----------Targets-----------#
+
+    
+    def _add_targets(self) -> None:
+        tag_id_colors: Dict[int, Tuple[float, float, float]] = {
+            0 : TAG_GREEN,
+            1 : TAG_YELLOW,
+            2 : TAG_RED
+        }
+        
+        target_radius: float = self.field.ball_radius
+        # Add targets
+        for id in range(self.n_targets):
+            target_transform:rendering.Transform = rendering.Transform()
+            
+            target: rendering.Geom = rendering.make_circle(target_radius, filled=True)
+            target.set_color(*tag_id_colors[id])
+            target.add_attr(target_transform)
+            
+            self.screen.add_geom(target)
+            
+            self.targets.append(target_transform)
