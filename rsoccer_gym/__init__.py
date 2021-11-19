@@ -1,5 +1,10 @@
 from gym.envs.registration import register
 
+register(id='VSSGoTo-v0',
+         entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
+         max_episode_steps=1200
+         )
+
 register(id='VSS-v0',
          entry_point='rsoccer_gym.vss.env_vss:VSSEnv',
          max_episode_steps=1200
