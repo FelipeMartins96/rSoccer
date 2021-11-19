@@ -140,7 +140,7 @@ class VSSGoToEnv(VSSBaseEnv):
         rbt = [self.frame.robots_blue[0].x, self.frame.robots_blue[0].y]
         tgt = [self.target[0], self.target[1]]
         dist = np.linalg.norm(np.array(rbt) - np.array(tgt))
-
+        reward = -dist
         if dist < self.target_margin:
             done = True
             reward = 1
