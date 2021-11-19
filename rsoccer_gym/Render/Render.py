@@ -91,7 +91,6 @@ class RCGymRender:
         # add background
         self._add_background()
 
-        self._add_targets()
 
         if simulator == "vss":
             # add field_lines
@@ -105,6 +104,8 @@ class RCGymRender:
             # add robots
             self._add_ssl_robots()
         
+        self._add_targets()
+
         # add ball
         self._add_ball()
 
