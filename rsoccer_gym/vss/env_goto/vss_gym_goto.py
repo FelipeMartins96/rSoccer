@@ -50,21 +50,23 @@ class VSSGoToEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self):
+    def __init__(self, target_margin=0.05, n_targets=1, w_energy=1e-3):
         super().__init__(field_type=0, n_robots_blue=1, n_robots_yellow=0,
                          time_step=0.025, use_fira=False)
 
         self.action_space = gym.spaces.Box(low=-1, high=1,
                                            shape=(2, ), dtype=np.float32)
+        n_obs = 7 + 2 * n_targets
         self.observation_space = gym.spaces.Box(low=-self.NORM_BOUNDS,
                                                 high=self.NORM_BOUNDS,
-                                                shape=(9, ), dtype=np.float32)
+                                                shape=(n_obs, ), dtype=np.float32)
 
         # Initialize Class Atributes
         self.reward_shaping_total = None
         self.v_wheel_deadzone = 0.05
-        self.target_margin = 0.05
-        self.n_targets = 1
+        self.target_margin = target_margin
+        self.n_targets = n_targets
+        self.w_energy = w_energy
 
         print('Environment initialized')
 
@@ -73,9 +75,8 @@ class VSSGoToEnv(VSSBaseEnv):
         return super().reset()
 
     def step(self, action):
-        return super().step(action)
-        # observation, reward, done, _ = super().step(action)
-        # return observation, reward, done, self.reward_shaping_total
+        observation, reward, done, _ = super().step(action)
+        return observation, reward, done, self.reward_shaping_total
 
     # TODO move render with targets to base 
     def render(self, mode="human") -> None:
@@ -99,7 +100,7 @@ class VSSGoToEnv(VSSBaseEnv):
                 self.n_robots_blue, self.n_robots_yellow, self.field, self.n_targets, simulator="vss"
             )
 
-        return self.view.render_frame(self.frame, [self.target], return_rgb_array=mode == "rgb_array")
+        return self.view.render_frame(self.frame, self.targets, return_rgb_array=mode == "rgb_array")
 
     def _frame_to_observations(self):
 
@@ -118,8 +119,9 @@ class VSSGoToEnv(VSSBaseEnv):
         observation.append(self.norm_v(self.frame.robots_blue[0].v_y))
         observation.append(self.norm_w(self.frame.robots_blue[0].v_theta))
 
-        observation.append(self.norm_pos(self.target[0]))
-        observation.append(self.norm_pos(self.target[1]))
+        for t in self.targets:
+            observation.append(self.norm_pos(t[0]))
+            observation.append(self.norm_pos(t[1]))
 
         return np.array(observation, dtype=np.float32)
 
@@ -133,17 +135,38 @@ class VSSGoToEnv(VSSBaseEnv):
         return commands
 
     def _calculate_reward_and_done(self):
+        if self.reward_shaping_total is None:
+            self.reward_shaping_total = {'dist': 0, 'energy': 0}
+        
         reward = -1
         done = False
 
         # Check if reached goal
         rbt = [self.frame.robots_blue[0].x, self.frame.robots_blue[0].y]
-        tgt = [self.target[0], self.target[1]]
-        dist = np.linalg.norm(np.array(rbt) - np.array(tgt))
+        p0 = rbt
+        p1 = [self.targets[0][0], self.targets[0][1]]
+        # If reached next target
+        if np.linalg.norm(np.array(p1) - np.array(p0)) < self.target_margin:
+            # Rotate targets if it was reached
+            for i in  range(len(self.targets) - 1):
+                self.targets[i] = self.targets[i + 1]
+
+        # Calculate distance as sum of distance of each sequential target
+        dist = 0
+        for t in self.targets:
+            p1 = [t[0], t[1]]
+            dist += np.linalg.norm(np.array(p1) - np.array(p0))
+            p0 = p1
+
         reward = -dist
         if dist < self.target_margin:
-            done = True
-            reward = 1
+            # done = True
+            reward = 0
+
+        self.reward_shaping_total['dist'] += reward
+        energy_pen = self.w_energy * self.__energy_penalty()
+        self.reward_shaping_total['energy'] += energy_pen
+        reward += energy_pen
 
         return reward, done
 
@@ -185,10 +208,13 @@ class VSSGoToEnv(VSSBaseEnv):
             places.insert(pos)
             pos_frame.robots_yellow[i] = Robot(x=pos[0], y=pos[1], theta=theta())
 
-        pos = (x(), y())
-        while places.get_nearest(pos)[1] < min_dist:
+        self.targets = []
+        for i in range(self.n_targets):
             pos = (x(), y())
-        self.target = pos
+            while places.get_nearest(pos)[1] < min_dist:
+                pos = (x(), y())
+            places.insert(pos)
+            self.targets.append(pos)
 
         return pos_frame
 

@@ -4,6 +4,11 @@ register(id='VSSGoTo-v0',
          entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
          max_episode_steps=1200
          )
+register(id='VSSGoTo-v1',
+         entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
+        kwargs={'n_targets': 3},
+         max_episode_steps=1200
+         )
 
 register(id='VSS-v0',
          entry_point='rsoccer_gym.vss.env_vss:VSSEnv',
