@@ -50,7 +50,7 @@ class VSSGoToEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self, target_margin=0.05, n_targets=1, w_energy=1e-3):
+    def __init__(self, target_margin=0.05, n_targets=1, w_energy=1e-3, w_dist=1):
         super().__init__(field_type=0, n_robots_blue=1, n_robots_yellow=0,
                          time_step=0.025, use_fira=False)
 
@@ -67,6 +67,7 @@ class VSSGoToEnv(VSSBaseEnv):
         self.target_margin = target_margin
         self.n_targets = n_targets
         self.w_energy = w_energy
+        self.w_dist = w_dist
 
         print('Environment initialized')
 
@@ -138,7 +139,7 @@ class VSSGoToEnv(VSSBaseEnv):
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'dist': 0, 'energy': 0}
         
-        reward = -1
+        reward = 0
         done = False
 
         # Check if reached goal
@@ -158,7 +159,7 @@ class VSSGoToEnv(VSSBaseEnv):
             dist += np.linalg.norm(np.array(p1) - np.array(p0))
             p0 = p1
 
-        reward = -dist
+        reward = -dist * self.w_dist
         if dist < self.target_margin:
             # done = True
             reward = 0
