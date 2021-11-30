@@ -50,7 +50,7 @@ class VSSGoToEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self, target_margin=0.05, n_targets=1, w_energy=1e-3, w_dist=1):
+    def __init__(self, target_margin=0.0215, n_targets=1, w_energy=1e-3, w_dist=1):
         super().__init__(field_type=0, n_robots_blue=1, n_robots_yellow=0,
                          time_step=0.025, use_fira=False)
 
