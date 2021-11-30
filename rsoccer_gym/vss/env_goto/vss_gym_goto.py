@@ -138,6 +138,8 @@ class VSSGoToEnv(VSSBaseEnv):
     def _calculate_reward_and_done(self):
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'dist': 0, 'energy': 0}
+            for i in range(self.n_targets):
+                self.reward_shaping_total[f'target_{i}_score'] = 0
         
         reward = 0
         done = False
@@ -147,10 +149,15 @@ class VSSGoToEnv(VSSBaseEnv):
         p0 = rbt
         p1 = [self.targets[0][0], self.targets[0][1]]
         # If reached next target
-        if np.linalg.norm(np.array(p1) - np.array(p0)) < self.target_margin:
+        if self.n_reached_targets < self.n_targets and np.linalg.norm(np.array(p1) - np.array(p0)) < self.target_margin:
             # Rotate targets if it was reached
             for i in  range(len(self.targets) - 1):
                 self.targets[i] = self.targets[i + 1]
+            
+            # Calculate target score
+            self.reward_shaping_total[f'target_{self.n_reached_targets}_score'] = self.targets_distances[self.n_reached_targets] / (self.steps - self.last_target_steps)
+            self.n_reached_targets += 1
+            self.last_target_steps = self.steps
 
         # Calculate distance as sum of distance of each sequential target
         dist = 0
@@ -210,12 +217,19 @@ class VSSGoToEnv(VSSBaseEnv):
             pos_frame.robots_yellow[i] = Robot(x=pos[0], y=pos[1], theta=theta())
 
         self.targets = []
+        self.targets_distances = []
+        self.last_target_steps = 0
+        self.n_reached_targets = 0
+        p0 = [pos_frame.robots_blue[0].x, pos_frame.robots_blue[0].y]
         for i in range(self.n_targets):
             pos = (x(), y())
             while places.get_nearest(pos)[1] < min_dist:
                 pos = (x(), y())
             places.insert(pos)
             self.targets.append(pos)
+            p1 = [pos[0], pos[1]]
+            self.targets_distances.append(np.linalg.norm(np.array(p1) - np.array(p0)))
+            p0 = p1
 
         return pos_frame
 
