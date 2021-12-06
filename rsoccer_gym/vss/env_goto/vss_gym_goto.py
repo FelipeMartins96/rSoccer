@@ -56,7 +56,7 @@ class VSSGoToEnv(VSSBaseEnv):
 
         self.action_space = gym.spaces.Box(low=-1, high=1,
                                            shape=(2, ), dtype=np.float32)
-        n_obs = 7 + 2 * n_targets
+        n_obs = 7 + 2 * n_targets + 4 * n_yellow_robots
         self.observation_space = gym.spaces.Box(low=-self.NORM_BOUNDS,
                                                 high=self.NORM_BOUNDS,
                                                 shape=(n_obs, ), dtype=np.float32)
@@ -119,6 +119,16 @@ class VSSGoToEnv(VSSBaseEnv):
         observation.append(self.norm_v(self.frame.robots_blue[0].v_x))
         observation.append(self.norm_v(self.frame.robots_blue[0].v_y))
         observation.append(self.norm_w(self.frame.robots_blue[0].v_theta))
+
+        for yellow_rbt in self.frame.robots_yellow.values():
+            observation.append(self.norm_pos(yellow_rbt.x))
+            observation.append(self.norm_pos(yellow_rbt.y))
+            observation.append(
+                np.sin(np.deg2rad(yellow_rbt.theta))
+            )
+            observation.append(
+                np.cos(np.deg2rad(yellow_rbt.theta))
+            )
 
         for t in self.targets:
             observation.append(self.norm_pos(t[0]))

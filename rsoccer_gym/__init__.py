@@ -10,6 +10,11 @@ register(id='VSSGoTo-v1',
         kwargs={'n_targets': 3, 'w_energy': 0},
          max_episode_steps=600
          )
+register(id='VSSGoTo-v2',
+         entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
+        kwargs={'n_targets': 1, 'n_blue_robots': 1, 'n_yellow_robots': 5, 'w_energy': 0},
+         max_episode_steps=600
+         )
 
 register(id='VSS-v0',
          entry_point='rsoccer_gym.vss.env_vss:VSSEnv',
