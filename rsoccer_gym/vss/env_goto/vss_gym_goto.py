@@ -50,8 +50,8 @@ class VSSGoToEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self, target_margin=0.0215, n_targets=1, w_energy=1e-3, w_dist=1):
-        super().__init__(field_type=0, n_robots_blue=1, n_robots_yellow=0,
+    def __init__(self, target_margin=0.0215, n_targets=1, w_energy=1e-3, w_dist=1, n_blue_robots=1, n_yellow_robots=0):
+        super().__init__(field_type=0, n_robots_blue=n_blue_robots, n_robots_yellow=n_yellow_robots,
                          time_step=0.025, use_fira=False)
 
         self.action_space = gym.spaces.Box(low=-1, high=1,

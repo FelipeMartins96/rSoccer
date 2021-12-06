@@ -272,13 +272,13 @@ class RCGymRender:
         # Add blue robots
         for id in range(self.n_robots_blue):
             self.blue_robots.append(
-                self._add_vss_robot(team_color=TAG_BLUE, id_color=tag_id_colors[id])
+                self._add_vss_robot(team_color=TAG_BLUE, id_color=tag_id_colors[id%3])
             )
             
         # Add yellow robots
         for id in range(self.n_robots_yellow):
             self.yellow_robots.append(
-                self._add_vss_robot(team_color=TAG_YELLOW, id_color=tag_id_colors[id])
+                self._add_vss_robot(team_color=TAG_YELLOW, id_color=tag_id_colors[id%3])
             )
 
     def _add_vss_robot(self, team_color, id_color) -> rendering.Transform:
