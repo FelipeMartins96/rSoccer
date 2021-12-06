@@ -137,7 +137,14 @@ class VSSGoToEnv(VSSBaseEnv):
 
     def _calculate_reward_and_done(self):
         if self.reward_shaping_total is None:
-            self.reward_shaping_total = {'dist': 0, 'energy': 0}
+            self.reward_shaping_total = {
+                'dist': 0,
+                'weighted/dist': 0,
+                'energy': 0,
+                'weighted/energy': 0,
+                'collision': 0,
+                'n_reached_targets': 0
+                }
             for i in range(self.n_targets):
                 self.reward_shaping_total[f'target_{i}_score'] = 0
         
@@ -155,9 +162,11 @@ class VSSGoToEnv(VSSBaseEnv):
                 self.targets[i] = self.targets[i + 1]
             
             # Calculate target score
+            # TODO: make it nomalized to max at 1 when using full speed
             self.reward_shaping_total[f'target_{self.n_reached_targets}_score'] = self.targets_distances[self.n_reached_targets] / (self.steps - self.last_target_steps)
             self.n_reached_targets += 1
             self.last_target_steps = self.steps
+            self.reward_shaping_total['n_reached_targets'] += 1
 
         # Calculate distance as sum of distance of each sequential target
         dist = 0
@@ -166,12 +175,23 @@ class VSSGoToEnv(VSSBaseEnv):
             dist += np.linalg.norm(np.array(p1) - np.array(p0))
             p0 = p1
 
-        reward = -dist * self.w_dist
+        # Distance reward
+        dist_rw = -dist
+        self.reward_shaping_total['dist'] += dist_rw
+        weighted_dist_rw = self.w_dist * dist_rw
+        self.reward_shaping_total['weighted/dist'] += weighted_dist_rw
 
-        self.reward_shaping_total['dist'] += reward
-        energy_pen = self.w_energy * self.__energy_penalty()
+        # Energy reward
+        energy_pen = self.__energy_penalty()
         self.reward_shaping_total['energy'] += energy_pen
-        reward += energy_pen
+        weighted_energy_pen = self.w_energy * energy_pen
+        self.reward_shaping_total['weighted/energy'] += weighted_energy_pen
+
+        # Collision reward
+        collision_pen = self.__collision_penalty()
+        self.reward_shaping_total['collision'] += collision_pen
+
+        reward += weighted_dist_rw + weighted_energy_pen
 
         return reward, done
 
@@ -258,3 +278,12 @@ class VSSGoToEnv(VSSBaseEnv):
         en_penalty_2 = abs(self.sent_commands[0].v_wheel1)
         energy_penalty = - (en_penalty_1 + en_penalty_2)
         return energy_penalty
+    
+    def __collision_penalty(self):
+
+        collision_penalty = 0
+        for yellow_rbt in self.frame.robots_yellow.values():
+            rbt_speed = np.linalg.norm(np.array([yellow_rbt.v_x, yellow_rbt.v_y]))
+            collision_penalty += -rbt_speed
+
+        return collision_penalty
