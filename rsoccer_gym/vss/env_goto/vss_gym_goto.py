@@ -167,9 +167,6 @@ class VSSGoToEnv(VSSBaseEnv):
             p0 = p1
 
         reward = -dist * self.w_dist
-        if dist < self.target_margin:
-            # done = True
-            reward = 0
 
         self.reward_shaping_total['dist'] += reward
         energy_pen = self.w_energy * self.__energy_penalty()

@@ -2,12 +2,13 @@ from gym.envs.registration import register
 
 register(id='VSSGoTo-v0',
          entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
-         max_episode_steps=1200
+        kwargs={'n_targets': 1, 'w_energy': 0},
+         max_episode_steps=600
          )
 register(id='VSSGoTo-v1',
          entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
-        kwargs={'n_targets': 3},
-         max_episode_steps=1200
+        kwargs={'n_targets': 3, 'w_energy': 0},
+         max_episode_steps=600
          )
 
 register(id='VSS-v0',
