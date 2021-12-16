@@ -98,7 +98,7 @@ class VSSGoToHRLEnv(VSSBaseEnv):
 
     def reset(self):
         self.reward_shaping_total = None
-        self.targets = [None]
+        self.targets = [(0., 0.)]
         self.previous_ball_potential = None
         return super().reset()
 
