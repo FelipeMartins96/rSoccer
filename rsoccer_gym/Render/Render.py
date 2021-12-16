@@ -139,7 +139,12 @@ class RCGymRender:
             self.yellow_robots[i].set_rotation(np.deg2rad(yellow.theta))
 
         for i, target in enumerate(targets):
-            self.targets[i].set_translation(target[0], target[1])
+            clipped_target = np.clip(
+                target,
+                (self.screen_dimensions["left"], self.screen_dimensions['bottom']),
+                (self.screen_dimensions["right"], self.screen_dimensions['top'])
+            )
+            self.targets[i].set_translation(clipped_target[0], clipped_target[1])
 
         return self.screen.render(return_rgb_array=return_rgb_array)
 
