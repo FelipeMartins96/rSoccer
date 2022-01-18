@@ -74,7 +74,7 @@ class VSSGoToHRLEnv(VSSBaseEnv):
         )
 
         self.action_space = gym.spaces.Box(
-            low=-1, high=1, shape=(2, 2), dtype=np.float32
+            low=-1, high=1, shape=(2, n_blue_robots*2), dtype=np.float32
         )
         n_obs = 4 + 7 * n_blue_robots + 5 * n_yellow_robots
         self.observation_space = gym.spaces.Box(
@@ -85,7 +85,7 @@ class VSSGoToHRLEnv(VSSBaseEnv):
         )
 
         self.reward_shaping_total = None
-        self.n_targets = n_targets
+        self.n_targets = n_targets * n_blue_robots
         # Initialize Class Atributes Manager
         self.man_w_goal = man_w_goal
         self.man_w_ball_grad = man_w_ball_grad
@@ -171,13 +171,14 @@ class VSSGoToHRLEnv(VSSBaseEnv):
     def _get_commands(self, actions):
         # Manager Actions
         man_acts = actions[0]
-        self.targets[0] = man_acts * self.max_pos
+        self.targets = [man_acts[i*2:i*2+2] * self.max_pos for i in range(self.n_robots_blue)]
 
         # Worker Actions
-        wor_acts = actions[1]
         commands = []
-        v_wheel0, v_wheel1 = self._actions_to_v_wheels(wor_acts)
-        commands.append(Robot(yellow=False, id=0, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
+        for i in range(self.n_robots_blue):
+            wor_acts = actions[1][i*2:i*2+2]
+            v_wheel0, v_wheel1 = self._actions_to_v_wheels(wor_acts)
+            commands.append(Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
 
         return commands
 
