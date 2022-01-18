@@ -55,10 +55,15 @@ class VSSGoToHRLEnv(VSSBaseEnv):
         self,
         target_margin=0.0215,
         n_targets=1,
-        w_energy=1e-3,
-        w_dist=1,
         n_blue_robots=1,
         n_yellow_robots=0,
+        wor_w_energy=1e-3,
+        wor_w_dist=1,
+        man_w_goal = 10,
+        man_w_ball_grad = 0.8,
+        man_w_move = 0.2,
+        man_w_energy = 2e-4,
+        man_w_collision = 0,
     ):
         super().__init__(
             field_type=0,
@@ -82,17 +87,17 @@ class VSSGoToHRLEnv(VSSBaseEnv):
         self.reward_shaping_total = None
         self.n_targets = n_targets
         # Initialize Class Atributes Manager
-        self.man_w_goal = 10
-        self.man_w_ball_grad = 0.8
-        self.man_w_move = 0.2
-        self.man_w_energy = 2e-4
-        self.man_w_collision = 0
+        self.man_w_goal = man_w_goal
+        self.man_w_ball_grad = man_w_ball_grad
+        self.man_w_move = man_w_move
+        self.man_w_energy = man_w_energy
+        self.man_w_collision = man_w_collision
 
         # Initialize Class Atributes Worker
         self.v_wheel_deadzone = 0.05
         self.target_margin = target_margin
-        self.w_energy = w_energy
-        self.w_dist = w_dist
+        self.w_energy = wor_w_energy
+        self.w_dist = wor_w_dist
 
         print("Environment initialized")
 
