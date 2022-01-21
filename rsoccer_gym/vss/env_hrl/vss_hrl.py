@@ -28,6 +28,13 @@ class VSSHRLEnv(gym.Env):
         n_robots_yellow,
         time_step,
     ):
+        # Environment recieves action for all robots
+        self.action_space = gym.spaces.Box(
+            low=-1,
+            high=1,
+            shape=((n_robots_blue + n_robots_yellow) * 2,),
+            dtype=np.float32,
+        )
         self.sim = RSimVSS(
             field_type=field_type,
             n_robots_blue=n_robots_blue,
@@ -39,6 +46,10 @@ class VSSHRLEnv(gym.Env):
         self.field = self.sim.get_field_params()
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
+        self.n_controlled_robots = n_robots_blue
+        self.v_wheel_deadzone = 0.05  # TODO: make this a parameter
+        self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
+        # TODO: get norm arrays
 
     def get_spaces_m(self):
         """
@@ -116,11 +127,8 @@ class VSSHRLEnv(gym.Env):
         # Get observations
         obs = self._frame_to_observations(frame)
 
-        # Check for terminal state
-        done = is_done(frame)
-
         # Calculate rewards
-        rewards = self._get_rewards(frame) if not done else 0
+        rewards, done = self._get_rewards_and_done(frame)
 
         # Reset manager action flag
         self.is_set_action_m = False
@@ -135,8 +143,60 @@ class VSSHRLEnv(gym.Env):
         self.sim.reset(self._get_initial_frame())
         frame = self.sim.get_frame()
         observations = self._frame_to_observations(frame)
-        m_obs = self.get_obs_m(observations)
+        m_obs = self._get_obs_m(observations)
         return m_obs
+
+    def _get_rewards_and_done(self, frame):
+        # TODO: implement rewards
+        return 0, False
+
+    def _get_sim_maximuns(self):
+        max_pos = max(
+            self.field.width / 2, (self.field.length / 2) + self.field.penalty_length
+        )
+        max_wheel_rad_s = (self.field.rbt_motor_max_rpm / 60) * 2 * np.pi
+        max_v = max_wheel_rad_s * self.field.rbt_wheel_radius
+        # 0.04 = robot radius (0.0375) + wheel thicknees (0.0025)
+        max_w = np.rad2deg(self.max_v / 0.04)
+
+        return max_pos, max_v, max_w
+
+    def _get_commands(self, acts):
+        # Denormalize
+        dn_acts = np.clip(acts, -1, 1) * self.max_v
+        # Process deadzone
+        pc_acts = dn_acts * (
+            (dn_acts < -self.v_wheel_deadzone) | (dn_acts > self.v_wheel_deadzone)
+        )
+        actions = pc_acts.reshape((-1, 2))
+
+        commands = []
+        for i in range(self.n_robots_blue):
+            v_wheel0, v_wheel1 = actions[i]
+            commands.append(
+                Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
+            )
+
+        for i in range(self.n_robots_yellow):
+            j = i + self.n_robots_blue
+            v_wheel0, v_wheel1 = actions[j]
+            commands.append(
+                Robot(yellow=True, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
+            )
+
+        return commands
+
+    def _get_obs_m(self, observations):
+        """
+        Returns the observations of the manager
+        """
+        return np.concatenate(
+            [
+                observations.ball,
+                observations.blue.flatten(),
+                observations.yellow.flatten(),
+            ]
+        )
 
     def _frame_to_observations(self, frame):
         """
