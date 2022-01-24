@@ -8,6 +8,7 @@ from collections import namedtuple
 
 Observations = namedtuple("Observations", ["ball", "blue", "yellow"])
 Rewards = namedtuple("Rewards", ["manager", "workers"])
+Obs = namedtuple("Obs", ['manager', 'workers'])
 
 
 class VSSHRLEnv(gym.Env):
@@ -29,7 +30,7 @@ class VSSHRLEnv(gym.Env):
         n_robots_yellow,
         time_step,
         m_w_goal=10,
-        m_w_ball_grad=0.8,
+        m_w_ball_grad=100,
         m_w_move=0,
         m_w_energy=0,
         m_w_collision=0,
@@ -102,7 +103,12 @@ class VSSHRLEnv(gym.Env):
         # Reset manager action flag
         self.is_set_action_m = False
 
-        return self.observations, Rewards(m_reward, w_rewards), done, self.info
+        return (
+            Obs(self._get_obs_m(), self._get_obs_w()),
+            Rewards(m_reward, w_rewards),
+            done,
+            self.info,
+        )
 
     def render(self, mode='human'):
         if self.view is None:
@@ -238,7 +244,7 @@ class VSSHRLEnv(gym.Env):
         pc_acts = dn_acts * (
             (dn_acts < -self.v_wheel_deadzone) | (dn_acts > self.v_wheel_deadzone)
         )
-        actions = pc_acts.reshape((-1, 2))
+        actions = pc_acts.reshape((-1, 2)) / self.field.rbt_wheel_radius
 
         commands = []
         for i in range(self.n_robots_blue):
@@ -272,7 +278,7 @@ class VSSHRLEnv(gym.Env):
         return np.stack(
             [
                 np.concatenate(
-                    [self.observations.ball, self.observations.blue[i], self.targets[i]]
+                    [self.observations.blue[i], self.targets[i]]
                 )
                 for i in range(self.n_controlled_robots)
             ]
