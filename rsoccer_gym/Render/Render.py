@@ -26,7 +26,6 @@ class RCGymRender:
     def __init__(self, n_robots_blue: int,
                  n_robots_yellow: int,
                  field_params: Field,
-                 n_targets:int = 0,
                  simulator: str = 'vss',
                  width: int = 750,
                  height: int = 650) -> None:
@@ -54,12 +53,10 @@ class RCGymRender:
         '''
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
-        self.n_targets = n_targets
         self.field = field_params
         self.ball: rendering.Transform = None
         self.blue_robots: List[rendering.Transform] = []
         self.yellow_robots: List[rendering.Transform] = []
-        self.targets: List[rendering.Transform] = []
 
         # Window dimensions in pixels
         screen_width = width
@@ -104,8 +101,6 @@ class RCGymRender:
             # add robots
             self._add_ssl_robots()
         
-        self._add_targets()
-
         # add ball
         self._add_ball()
 
@@ -114,7 +109,7 @@ class RCGymRender:
         del(self.screen)
         self.screen = None
 
-    def render_frame(self, frame: Frame, targets: list = [], return_rgb_array: bool = False) -> None:
+    def render_frame(self, frame: Frame, targets = None, return_rgb_array: bool = False) -> None:
         '''
         Draws the field, ball and players.
 
@@ -138,13 +133,17 @@ class RCGymRender:
             self.yellow_robots[i].set_translation(yellow.x, yellow.y)
             self.yellow_robots[i].set_rotation(np.deg2rad(yellow.theta))
 
-        for i, target in enumerate(targets):
-            clipped_target = np.clip(
-                target,
-                (self.screen_dimensions["left"], self.screen_dimensions['bottom']),
-                (self.screen_dimensions["right"], self.screen_dimensions['top'])
-            )
-            self.targets[i].set_translation(clipped_target[0], clipped_target[1])
+        if targets is not None:
+            max_x = self.screen_dimensions["right"] - self.field.ball_radius
+            max_y = self.screen_dimensions["top"] - self.field.ball_radius
+            clipped_targets = np.clip(targets,(-max_x, -max_y),(max_x, max_y))
+            tag_id_colors = {0 : TAG_GREEN, 1 : TAG_PURPLE, 2 : TAG_RED}
+
+            for i, target in enumerate(clipped_targets):
+                t = rendering.make_circle(self.field.ball_radius, filled=True)
+                t._color.vec4 = (*tag_id_colors[i], 0.8)
+                t.add_attr(rendering.Transform(translation=(target[0], target[1])))
+                self.screen.add_onetime(t)
 
         return self.screen.render(return_rgb_array=return_rgb_array)
 
@@ -554,26 +553,3 @@ class RCGymRender:
         self.screen.add_geom(ball_outline)
         
         self.ball = ball_transform
-
-    #----------Targets-----------#
-
-    
-    def _add_targets(self) -> None:
-        tag_id_colors: Dict[int, Tuple[float, float, float]] = {
-            0 : TAG_GREEN,
-            1 : TAG_YELLOW,
-            2 : TAG_RED
-        }
-        
-        target_radius: float = self.field.ball_radius
-        # Add targets
-        for id in range(self.n_targets):
-            target_transform:rendering.Transform = rendering.Transform()
-            
-            target: rendering.Geom = rendering.make_circle(target_radius, filled=True)
-            target.set_color(*tag_id_colors[id])
-            target.add_attr(target_transform)
-            
-            self.screen.add_geom(target)
-            
-            self.targets.append(target_transform)

@@ -133,7 +133,6 @@ class VSSGoToHRLEnv(VSSBaseEnv):
                 self.n_robots_blue,
                 self.n_robots_yellow,
                 self.field,
-                self.n_targets,
                 simulator="vss",
             )
 
