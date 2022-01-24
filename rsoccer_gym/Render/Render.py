@@ -141,7 +141,7 @@ class RCGymRender:
 
             for i, target in enumerate(clipped_targets):
                 t = rendering.make_circle(self.field.ball_radius, filled=True)
-                t._color.vec4 = (*tag_id_colors[i], 0.8)
+                t._color.vec4 = (*tag_id_colors[i], 0.9)
                 t.add_attr(rendering.Transform(translation=(target[0], target[1])))
                 self.screen.add_onetime(t)
 

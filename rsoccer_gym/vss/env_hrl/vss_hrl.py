@@ -48,10 +48,10 @@ class VSSHRLEnv(gym.Env):
         self.n_robots_yellow = n_robots_yellow
         self.n_controlled_robots = n_robots_blue
         self.v_wheel_deadzone = 0.05  # TODO: make this a parameter
-        self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
         self.view = None
         self.targets = None
-        # TODO: get norm arrays
+        self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
+        self.ball_norm, self.blue_norm, self.yellow_norm = self._get_obs_norms()
 
     def render(self, mode='human'):
         if self.view is None:
@@ -218,10 +218,6 @@ class VSSHRLEnv(gym.Env):
         """
         Converts the frame to observations
         """
-        # TODO: get norm arrays
-        self.ball_norm = np.array([0.1, 0.1, 0.1, 0.1])
-        self.blue_norm = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        self.yellow_norm = np.array([0.1, 0.1, 0.1, 0.1, 0.1])
 
         ball_np = np.array([frame.ball.x, frame.ball.y, frame.ball.v_x, frame.ball.v_y])
         blue_np = np.array(
@@ -303,3 +299,22 @@ class VSSHRLEnv(gym.Env):
             frame.robots_yellow[i] = Robot(x=pos[0], y=pos[1], theta=theta)
 
         return frame
+
+    def _get_obs_norms(self):
+        """
+        Returns the normalization arrays of the observations
+        """
+        pos_factor = 1 / self.max_pos
+        v_factor = 1 / self.max_v
+        w_factor = 1 / self.max_w
+
+        # 4 obs: X, Y, V_X, V_Y
+        ball_norm = np.array([pos_factor, pos_factor, v_factor, v_factor])
+        # 7 obs: X, Y, cos(THETA), sin(THETA), V_X, V_Y, V_THETA
+        blue_norm = np.array(
+            [pos_factor, pos_factor, 1, 1, v_factor, v_factor, w_factor]
+        )
+        # 5 obs: X, Y, V_X, V_Y, V_THETA
+        yellow_norm = np.array([pos_factor, pos_factor, v_factor, v_factor, w_factor])
+
+        return ball_norm, blue_norm, yellow_norm
