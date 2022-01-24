@@ -7,6 +7,7 @@ from rsoccer_gym.Utils import KDTree
 from collections import namedtuple
 
 Observations = namedtuple("Observations", ["ball", "blue", "yellow"])
+Rewards = namedtuple("Rewards", ["manager", "workers"])
 
 
 class VSSHRLEnv(gym.Env):
@@ -27,6 +28,14 @@ class VSSHRLEnv(gym.Env):
         n_robots_blue,
         n_robots_yellow,
         time_step,
+        m_w_goal=10,
+        m_w_ball_grad=0.8,
+        m_w_move=0,
+        m_w_energy=0,
+        m_w_collision=0,
+        w_w_dist=1,
+        w_w_energy=0,
+        v_wheel_deadzone=0.05,
     ):
         # Environment recieves action for all robots
         self.action_space = gym.spaces.Box(
@@ -47,11 +56,53 @@ class VSSHRLEnv(gym.Env):
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
         self.n_controlled_robots = n_robots_blue
-        self.v_wheel_deadzone = 0.05  # TODO: make this a parameter
+        self.v_wheel_deadzone = v_wheel_deadzone
         self.view = None
-        self.targets = None
         self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
         self.ball_norm, self.blue_norm, self.yellow_norm = self._get_obs_norms()
+
+        self.m_reward_weights = np.array(
+            [m_w_goal, m_w_ball_grad, m_w_move, m_w_collision, m_w_energy]
+        )
+        self.w_reward_weights = np.array([w_w_dist, w_w_energy])
+
+    def reset(self):
+        """
+        Resets the environment
+        """
+        self.is_set_action_m = False
+        self.targets = None
+        self.info = None
+        self.sim.reset(self._get_initial_frame())
+        self.frame = self.sim.get_frame()
+        self.observations = self._frame_to_observations()
+        return self._get_obs_m()
+
+    def step(self, w_actions):
+        """
+        Performs one step of the environment
+        """
+        assert self.is_set_action_m, 'Manager action not set'
+
+        # Denormalize actions, transform to v_wheel speeds
+        commands = self._get_commands(w_actions)
+        self.sent_commands = commands
+        self.sim.send_commands(commands)
+
+        # Get Frame from Simulator
+        self.last_frame = self.frame
+        self.frame = self.sim.get_frame()
+
+        # Get observations
+        self.observations = self._frame_to_observations()
+
+        # Calculate rewards
+        m_reward, w_rewards, done = self._get_rewards_and_done()
+
+        # Reset manager action flag
+        self.is_set_action_m = False
+
+        return self.observations, Rewards(m_reward, w_rewards), done, self.info
 
     def render(self, mode='human'):
         if self.view is None:
@@ -127,44 +178,47 @@ class VSSHRLEnv(gym.Env):
         self.targets = action.reshape((-1, 2))
         self.is_set_action_m = True
 
-    def step(self, w_actions):
-        """
-        Performs one step of the environment
-        """
-        assert self.is_set_action_m, 'Manager action not set'
+        return self._get_obs_w()
 
-        # Denormalize actions, transform to v_wheel speeds
-        commands = self._get_commands(w_actions)
-        self.sim.send_commands(commands)
+    def _get_rewards_and_done(self):
+        # Manager Rewards
+        m_rewards = np.array(
+            [
+                self._rw_goal(),
+                self._rw_ball_grad(),
+                self._rw_move(),
+                self._rw_collision(),
+                sum([self._rw_energy(i) for i in range(self.n_controlled_robots)]),
+            ]
+        )
 
-        # Get Frame from Simulator
-        frame = self.sim.get_frame()
+        # Workers Rewards
+        w_rewards = np.array(
+            [
+                [self._rw_dist(i), self._rw_energy(i)]
+                for i in range(self.n_controlled_robots)
+            ]
+        )
 
-        # Get observations
-        obs = self._frame_to_observations(frame)
+        m_weighted_rewards = m_rewards * self.m_reward_weights
+        w_weighted_rewards = w_rewards * self.w_reward_weights
 
-        # Calculate rewards
-        rewards, done = self._get_rewards_and_done(frame)
+        if self.info is None:
+            self.info = {
+                'manager_rw': m_rewards,
+                'workers_rw': w_rewards,
+                'manager_weighted_rw': m_weighted_rewards,
+                'workers_weighted_rw': w_weighted_rewards,
+            }
+        else:
+            self.info['manager_rw'] += m_rewards
+            self.info['workers_rw'] += w_rewards
+            self.info['manager_weighted_rw'] += m_weighted_rewards
+            self.info['workers_weighted_rw'] += w_weighted_rewards
 
-        # Reset manager action flag
-        self.is_set_action_m = False
+        done = True if m_rewards[0] != 0 else False
 
-        return obs, rewards, done, {}
-
-    def reset(self):
-        """
-        Resets the environment
-        """
-        self.is_set_action_m = False
-        self.sim.reset(self._get_initial_frame())
-        frame = self.sim.get_frame()
-        observations = self._frame_to_observations(frame)
-        m_obs = self._get_obs_m(observations)
-        return m_obs
-
-    def _get_rewards_and_done(self, frame):
-        # TODO: implement rewards
-        return 0, False
+        return m_weighted_rewards.sum(), w_weighted_rewards.sum(axis=1), done
 
     def _get_sim_maximuns(self):
         max_pos = max(
@@ -202,34 +256,51 @@ class VSSHRLEnv(gym.Env):
 
         return commands
 
-    def _get_obs_m(self, observations):
+    def _get_obs_m(self):
         """
         Returns the observations of the manager
         """
         return np.concatenate(
             [
-                observations.ball,
-                observations.blue.flatten(),
-                observations.yellow.flatten(),
+                self.observations.ball,
+                self.observations.blue.flatten(),
+                self.observations.yellow.flatten(),
             ]
         )
 
-    def _frame_to_observations(self, frame):
+    def _get_obs_w(self):
+        return np.stack(
+            [
+                np.concatenate(
+                    [self.observations.ball, self.observations.blue[i], self.targets[i]]
+                )
+                for i in range(self.n_controlled_robots)
+            ]
+        )
+
+    def _frame_to_observations(self):
         """
         Converts the frame to observations
         """
 
-        ball_np = np.array([frame.ball.x, frame.ball.y, frame.ball.v_x, frame.ball.v_y])
+        ball_np = np.array(
+            [
+                self.frame.ball.x,
+                self.frame.ball.y,
+                self.frame.ball.v_x,
+                self.frame.ball.v_y,
+            ]
+        )
         blue_np = np.array(
             [
                 [
-                    frame.robots_blue[i].x,
-                    frame.robots_blue[i].y,
-                    np.sin(np.deg2rad(frame.robots_blue[i].theta)),
-                    np.cos(np.deg2rad(frame.robots_blue[i].theta)),
-                    frame.robots_blue[i].v_x,
-                    frame.robots_blue[i].v_y,
-                    frame.robots_blue[i].v_theta,
+                    self.frame.robots_blue[i].x,
+                    self.frame.robots_blue[i].y,
+                    np.sin(np.deg2rad(self.frame.robots_blue[i].theta)),
+                    np.cos(np.deg2rad(self.frame.robots_blue[i].theta)),
+                    self.frame.robots_blue[i].v_x,
+                    self.frame.robots_blue[i].v_y,
+                    self.frame.robots_blue[i].v_theta,
                 ]
                 for i in range(self.n_robots_blue)
             ]
@@ -237,11 +308,11 @@ class VSSHRLEnv(gym.Env):
         yellow_np = np.array(
             [
                 [
-                    frame.robots_yellow[i].x,
-                    frame.robots_yellow[i].y,
-                    frame.robots_yellow[i].v_x,
-                    frame.robots_yellow[i].v_y,
-                    frame.robots_yellow[i].v_theta,
+                    self.frame.robots_yellow[i].x,
+                    self.frame.robots_yellow[i].y,
+                    self.frame.robots_yellow[i].v_x,
+                    self.frame.robots_yellow[i].v_y,
+                    self.frame.robots_yellow[i].v_theta,
                 ]
                 for i in range(self.n_robots_yellow)
             ]
@@ -261,13 +332,13 @@ class VSSHRLEnv(gym.Env):
         assert hasattr(self, 'key'), 'Jax key not set'
 
         min_dist = 0.1
-        h_width = self.field.width / 2 - min_dist
         h_length = self.field.length / 2 - min_dist
+        h_width = self.field.width / 2 - min_dist
 
         def randomize_pos(key):
             new_k, x_k, y_k, theta_k = jax.random.split(key, 4)
-            x = jax.random.uniform(x_k, minval=-h_width, maxval=h_width)
-            y = jax.random.uniform(y_k, minval=-h_length, maxval=h_length)
+            x = jax.random.uniform(x_k, minval=-h_length, maxval=h_length)
+            y = jax.random.uniform(y_k, minval=-h_width, maxval=h_width)
             theta = jax.random.uniform(theta_k) * 360
 
             return new_k, x, y, theta
@@ -318,3 +389,79 @@ class VSSHRLEnv(gym.Env):
         yellow_norm = np.array([pos_factor, pos_factor, v_factor, v_factor, w_factor])
 
         return ball_norm, blue_norm, yellow_norm
+
+    # -------------------Rewards-------------------
+
+    def _rw_goal(self):
+        """
+        1 if goal blue, -1 if goal yellow, 0 if not goal
+        """
+        if self.frame.ball.x > self.field.length / 2:
+            return 1
+        elif self.frame.ball.x < -self.field.length / 2:
+            return -1
+        return 0
+
+    def _rw_ball_grad(self):
+        """
+        ball grad is given by the distance delta from the ball to the yellow goal
+        """
+        last_ball = np.array([self.last_frame.ball.x, self.last_frame.ball.y])
+        ball = np.array([self.frame.ball.x, self.frame.ball.y])
+        yellow_goal = np.array([self.field.length / 2, 0])
+
+        last_dist = np.linalg.norm([yellow_goal, last_ball])
+        dist = np.linalg.norm([yellow_goal, ball])
+
+        return last_dist - dist
+
+    def _rw_move(self):
+        """
+        move is given by min dist between blue robots and ball
+        """
+        last_ball = np.array([self.last_frame.ball.x, self.last_frame.ball.y])
+        ball = np.array([self.frame.ball.x, self.frame.ball.y])
+        move_min = None
+        for rbt_id in self.frame.robots_blue:
+            rbt = np.array(
+                [self.frame.robots_blue[rbt_id].x, self.frame.robots_blue[rbt_id].y]
+            )
+            last_rbt = np.array(
+                [
+                    self.last_frame.robots_blue[rbt_id].x,
+                    self.last_frame.robots_blue[rbt_id].y,
+                ]
+            )
+            dist = np.linalg.norm([rbt, ball])
+            last_dist = np.linalg.norm([last_rbt, last_ball])
+            move = last_dist - dist
+            move_min = move if move_min is None or move < move_min else move_min
+        return move_min
+
+    def _rw_collision(self):
+        """
+        collision is given by the yellow robots velocity
+        """
+        collision_penalty = 0
+        for yellow_rbt in self.frame.robots_yellow.values():
+            rbt_speed = np.linalg.norm(np.array([yellow_rbt.v_x, yellow_rbt.v_y]))
+            collision_penalty -= rbt_speed
+
+        return collision_penalty
+
+    def _rw_energy(self, id):
+        """
+        energy is given the sum of sent wheel speed
+        """
+        en_wheel0 = abs(self.sent_commands[id].v_wheel0)
+        en_wheel1 = abs(self.sent_commands[id].v_wheel1)
+        return -(en_wheel0 + en_wheel1)
+
+    def _rw_dist(self, id):
+        """
+        dist is given by the distance between the robot and the target
+        """
+        rbt = np.array([self.frame.robots_blue[id].x, self.frame.robots_blue[id].y])
+        target = self.targets[id]
+        dist = np.linalg.norm(rbt - target)
+        return -dist

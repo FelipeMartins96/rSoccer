@@ -1,5 +1,12 @@
 from gym.envs.registration import register
 
+register(
+        id='VSSHRL-v0',
+        entry_point='rsoccer_gym.vss.env_hrl:VSSHRLEnv',
+        kwargs={'field_type': 0, 'n_robots_blue': 2, 'n_robots_yellow': 0, 'time_step': 0.025},
+        max_episode_steps=600,
+)
+
 register(id='VSSGoTo-v0',
          entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',
         kwargs={'n_targets': 1, 'w_energy': 0},
