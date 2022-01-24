@@ -49,7 +49,23 @@ class VSSHRLEnv(gym.Env):
         self.n_controlled_robots = n_robots_blue
         self.v_wheel_deadzone = 0.05  # TODO: make this a parameter
         self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
+        self.view = None
+        self.targets = None
         # TODO: get norm arrays
+
+    def render(self, mode='human'):
+        if self.view is None:
+            from rsoccer_gym.Render import RCGymRender
+
+            self.view = RCGymRender(
+                self.n_robots_blue, self.n_robots_yellow, self.field, simulator='vss'
+            )
+
+        return self.view.render_frame(
+            self.sim.get_frame(),
+            None if self.targets is None else self.targets * self.max_pos,
+            return_rgb_array=mode == 'rgb_array',
+        )
 
     def get_spaces_m(self):
         """
@@ -157,7 +173,7 @@ class VSSHRLEnv(gym.Env):
         max_wheel_rad_s = (self.field.rbt_motor_max_rpm / 60) * 2 * np.pi
         max_v = max_wheel_rad_s * self.field.rbt_wheel_radius
         # 0.04 = robot radius (0.0375) + wheel thicknees (0.0025)
-        max_w = np.rad2deg(self.max_v / 0.04)
+        max_w = np.rad2deg(max_v / 0.04)
 
         return max_pos, max_v, max_w
 
