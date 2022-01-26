@@ -68,6 +68,8 @@ class VSSHRLEnv(gym.Env):
         )
         self.w_reward_weights = np.array([w_w_dist, w_w_energy])
 
+        self.time_step = time_step
+
     def reset(self):
         """
         Resets the environment
