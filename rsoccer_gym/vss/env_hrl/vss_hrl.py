@@ -5,6 +5,7 @@ from rsoccer_gym.Simulators.rsim import RSimVSS
 from rsoccer_gym.Entities import Frame, Ball, Robot
 from rsoccer_gym.Utils import KDTree
 from collections import namedtuple
+import math
 
 Observations = namedtuple("Observations", ["ball", "blue", "yellow"])
 Rewards = namedtuple("Rewards", ["manager", "workers"])
@@ -30,7 +31,7 @@ class VSSHRLEnv(gym.Env):
         n_robots_yellow,
         time_step,
         m_w_goal=10,
-        m_w_ball_grad=100,
+        m_w_ball_grad=0.8,
         m_w_move=0,
         m_w_energy=0,
         m_w_collision=0,
@@ -409,6 +410,34 @@ class VSSHRLEnv(gym.Env):
         return 0
 
     def _rw_ball_grad(self):
+        # Calculate ball potential
+        length_cm = self.field.length * 100
+        half_lenght = (self.field.length / 2.0)\
+            + self.field.goal_depth
+
+        # distance to defence
+        dx_d = (half_lenght + self.frame.ball.x) * 100
+        # distance to attack
+        dx_a = (half_lenght - self.frame.ball.x) * 100
+        dy = (self.frame.ball.y) * 100
+
+        dist_1 = -math.sqrt(dx_a ** 2 + 2 * dy ** 2)
+        dist_2 = math.sqrt(dx_d ** 2 + 2 * dy ** 2)
+        ball_potential = ((dist_1 + dist_2) / length_cm - 1) / 2
+
+        grad_ball_potential = 0
+        # Calculate ball potential gradient
+        # = actual_potential - previous_potential
+        if self.previous_ball_potential is not None:
+            diff = ball_potential - self.previous_ball_potential
+            grad_ball_potential = np.clip(diff * 3 / self.time_step,
+                                          -5.0, 5.0)
+
+        self.previous_ball_potential = ball_potential
+
+        return grad_ball_potential
+
+    def _new_rw_ball_grad(self):
         """
         ball grad is given by the distance delta from the ball to the yellow goal
         """
