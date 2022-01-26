@@ -78,6 +78,7 @@ class VSSHRLEnv(gym.Env):
         self.sim.reset(self._get_initial_frame())
         self.frame = self.sim.get_frame()
         self.observations = self._frame_to_observations()
+        self.previous_ball_potential = None
         return self._get_obs_m()
 
     def step(self, w_actions):
