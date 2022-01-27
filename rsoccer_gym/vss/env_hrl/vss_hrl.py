@@ -426,7 +426,8 @@ class VSSHRLEnv(gym.Env):
         """
         last_ball = np.array([self.last_frame.ball.x, self.last_frame.ball.y])
         ball = np.array([self.frame.ball.x, self.frame.ball.y])
-        move_min = None
+        closest_rbt_dist = None
+        move = None
         for rbt_id in self.frame.robots_blue:
             rbt = np.array(
                 [self.frame.robots_blue[rbt_id].x, self.frame.robots_blue[rbt_id].y]
@@ -437,12 +438,13 @@ class VSSHRLEnv(gym.Env):
                     self.last_frame.robots_blue[rbt_id].y,
                 ]
             )
-            dist = np.linalg.norm([rbt, ball])
-            last_dist = np.linalg.norm([last_rbt, last_ball])
-            move = last_dist - dist
-            move_min = move if move_min is None or move < move_min else move_min
+            dist = np.linalg.norm(ball - rbt)
+            if closest_rbt_dist is None or dist < closest_rbt_dist:
+                closest_rbt_dist = dist
+                last_dist = np.linalg.norm(last_ball - last_rbt)
+                move = last_dist - dist
 
-        return move_min
+        return move
 
     def _rw_collision(self):
         """
