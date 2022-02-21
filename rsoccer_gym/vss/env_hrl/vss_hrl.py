@@ -30,6 +30,7 @@ class VSSHRLEnv(gym.Env):
         n_robots_blue,
         n_robots_yellow,
         time_step,
+        hierarchical=True,
         m_w_goal=10,
         m_w_ball_grad=40,
         m_w_move=0,
@@ -62,6 +63,7 @@ class VSSHRLEnv(gym.Env):
         self.view = None
         self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
         self.ball_norm, self.blue_norm, self.yellow_norm = self._get_obs_norms()
+        self.hierarchical = hierarchical
 
         self.m_reward_weights = np.array(
             [m_w_goal, m_w_ball_grad, m_w_move, m_w_collision, m_w_energy]
@@ -84,7 +86,7 @@ class VSSHRLEnv(gym.Env):
         """
         Performs one step of the environment
         """
-        assert self.is_set_action_m, 'Manager action not set'
+        assert self.is_set_action_m or not self.hierarchical, 'Manager action not set'
 
         # Denormalize actions, transform to v_wheel speeds
         commands = self._get_commands(w_actions)
@@ -105,7 +107,7 @@ class VSSHRLEnv(gym.Env):
         self.is_set_action_m = False
 
         return (
-            Obs(self._get_obs_m(), self._get_obs_w()),
+            Obs(self._get_obs_m(), self._get_obs_w() if self.hierarchical else None),
             Rewards(m_reward, w_rewards),
             done,
             self.info,
@@ -469,6 +471,9 @@ class VSSHRLEnv(gym.Env):
         """
         dist is given by the distance between the robot and the target
         """
+        if not self.hierarchical:
+            return 0
+
         rbt = np.array([self.frame.robots_blue[id].x, self.frame.robots_blue[id].y])
         target = self.targets[id]
         dist = np.linalg.norm(rbt - target)
