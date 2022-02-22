@@ -6,6 +6,25 @@ register(
         kwargs={'field_type': 0, 'n_robots_blue': 1, 'n_robots_yellow': 0, 'time_step': 0.025},
         max_episode_steps=600,
 )
+register(
+    id='VSSHRL-v1',
+    entry_point='rsoccer_gym.vss.env_hrl:VSSHRLEnv',
+    kwargs={
+        'field_type': 0,
+        'n_robots_blue': 1,
+        'n_robots_yellow': 0,
+        'time_step': 0.025,
+        'm_w_goal': 1,
+        'm_w_ball_grad': 1/0.75,
+        'm_w_move': 0,
+        'm_w_energy': 0,
+        'm_w_collision': 0,
+        'w_w_dist': 1/2.15,
+        'w_w_energy': 0,
+        'v_wheel_deadzone': 0.05,
+    },
+    max_episode_steps=600,
+)
 
 register(id='VSSGoTo-v0',
          entry_point='rsoccer_gym.vss.env_goto:VSSGoToEnv',

@@ -199,18 +199,23 @@ class VSSHRLEnv(gym.Env):
         # Manager Rewards
         m_rewards = np.array(
             [
-                self._rw_goal(),
-                self._rw_ball_grad(),
-                self._rw_move(),
-                self._rw_collision(),
-                sum([self._rw_energy(i) for i in range(self.n_controlled_robots)]),
+                self._rw_goal() if self.m_reward_weights[0] else 0,
+                self._rw_ball_grad() if self.m_reward_weights[1] else 0,
+                self._rw_move() if self.m_reward_weights[2] else 0,
+                self._rw_collision() if self.m_reward_weights[3] else 0,
+                sum([self._rw_energy(i) for i in range(self.n_controlled_robots)])
+                if self.m_reward_weights[4]
+                else 0,
             ]
         )
 
         # Workers Rewards
         w_rewards = np.array(
             [
-                [self._rw_dist(i), self._rw_energy(i)]
+                [
+                    self._rw_dist(i) if self.m_reward_weights[0] else 0,
+                    self._rw_energy(i) if self.m_reward_weights[1] else 0,
+                ]
                 for i in range(self.n_controlled_robots)
             ]
         )
@@ -275,7 +280,9 @@ class VSSHRLEnv(gym.Env):
     def _get_obs_w(self):
         return np.stack(
             [
-                np.concatenate([self.observations.blue[i], self.targets[i]*self.target_norm])
+                np.concatenate(
+                    [self.observations.blue[i], self.targets[i] * self.target_norm]
+                )
                 for i in range(self.n_controlled_robots)
             ]
         )
@@ -401,7 +408,7 @@ class VSSHRLEnv(gym.Env):
 
         target_norm = np.array([1 / max_x, 1 / max_y])
         self.max_v = max_v
-        
+
         return ball_norm, blue_norm, yellow_norm, target_norm
 
     # -------------------Rewards-------------------
