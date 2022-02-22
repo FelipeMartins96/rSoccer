@@ -231,7 +231,7 @@ class VSSHRLEnv(gym.Env):
 
     def _get_sim_maximuns(self):
         max_pos = max(
-            self.field.width / 2, (self.field.length / 2) + self.field.penalty_length
+            self.field.width / 2, (self.field.length / 2) + self.field.goal_depth
         )
         max_wheel_rad_s = (self.field.rbt_motor_max_rpm / 60) * 2 * np.pi
         max_v = max_wheel_rad_s * self.field.rbt_wheel_radius
@@ -474,7 +474,11 @@ class VSSHRLEnv(gym.Env):
         if not self.hierarchical:
             return 0
 
+        last_rbt = np.array([self.last_frame.robots_blue[id].x, self.last_frame.robots_blue[id].y])
+
         rbt = np.array([self.frame.robots_blue[id].x, self.frame.robots_blue[id].y])
         target = self.targets[id]
         dist = np.linalg.norm(rbt - target)
-        return -dist
+        last_dist = np.linalg.norm(last_rbt - target)
+
+        return last_dist - dist
