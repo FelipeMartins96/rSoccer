@@ -350,7 +350,7 @@ class VSSHRLEnv(gym.Env):
         # Randomize ball position
         self.key, x, y, theta = randomize_pos(self.key)
         if self.pre_training:
-            x, y = self.field.width, 0
+            x, y = 0, self.field.width
         frame.ball = Ball(x=x, y=y)
 
         tree = KDTree()
