@@ -61,8 +61,12 @@ class VSSHRLEnv(gym.Env):
         self.n_controlled_robots = n_robots_blue
         self.v_wheel_deadzone = v_wheel_deadzone
         self.view = None
-        self.max_pos, self.max_v, self.max_w = self._get_sim_maximuns()
-        self.ball_norm, self.blue_norm, self.yellow_norm = self._get_obs_norms()
+        (
+            self.ball_norm,
+            self.blue_norm,
+            self.yellow_norm,
+            self.target_norm,
+        ) = self._get_obs_norms()
         self.hierarchical = hierarchical
 
         self.m_reward_weights = np.array(
@@ -123,7 +127,7 @@ class VSSHRLEnv(gym.Env):
 
         return self.view.render_frame(
             self.sim.get_frame(),
-            None if self.targets is None else self.targets * self.max_pos,
+            None if self.targets is None else self.targets,
             return_rgb_array=mode == 'rgb_array',
         )
 
@@ -184,7 +188,7 @@ class VSSHRLEnv(gym.Env):
         """
         assert not self.is_set_action_m, 'Manager action already set'
 
-        self.targets = action.reshape((-1, 2))
+        self.targets = action.reshape((-1, 2)) / self.target_norm
         self.is_set_action_m = True
 
         return self._get_obs_w()
@@ -229,17 +233,6 @@ class VSSHRLEnv(gym.Env):
 
         return m_weighted_rewards.sum(), w_weighted_rewards.sum(axis=1), done
 
-    def _get_sim_maximuns(self):
-        max_pos = max(
-            self.field.width / 2, (self.field.length / 2) + self.field.goal_depth
-        )
-        max_wheel_rad_s = (self.field.rbt_motor_max_rpm / 60) * 2 * np.pi
-        max_v = max_wheel_rad_s * self.field.rbt_wheel_radius
-        # 0.04 = robot radius (0.0375) + wheel thicknees (0.0025)
-        max_w = np.rad2deg(max_v / 0.04)
-
-        return max_pos, max_v, max_w
-
     def _get_commands(self, acts):
         # Denormalize
         dn_acts = np.clip(acts, -1, 1) * self.max_v
@@ -280,7 +273,7 @@ class VSSHRLEnv(gym.Env):
     def _get_obs_w(self):
         return np.stack(
             [
-                np.concatenate([self.observations.blue[i], self.targets[i]])
+                np.concatenate([self.observations.blue[i], self.targets[i]*self.target_norm])
                 for i in range(self.n_controlled_robots)
             ]
         )
@@ -382,9 +375,16 @@ class VSSHRLEnv(gym.Env):
         """
         Returns the normalization arrays of the observations
         """
-        pos_factor = 1 / self.max_pos
-        v_factor = 1 / self.max_v
-        w_factor = 1 / self.max_w
+        max_x = (self.field.length / 2) + self.field.goal_depth
+        max_y = self.field.width / 2
+        max_wheel_rad_s = (self.field.rbt_motor_max_rpm / 60) * 2 * np.pi
+        max_v = max_wheel_rad_s * self.field.rbt_wheel_radius
+        # 0.04 = robot radius (0.0375) + wheel thicknees (0.0025)
+        max_w = np.rad2deg(max_v / 0.04)
+
+        pos_factor = 1 / max(max_x, max_y)
+        v_factor = 1 / max_v
+        w_factor = 1 / max_w
 
         # 4 obs: X, Y, V_X, V_Y
         ball_norm = np.array([pos_factor, pos_factor, v_factor, v_factor])
@@ -395,7 +395,10 @@ class VSSHRLEnv(gym.Env):
         # 5 obs: X, Y, V_X, V_Y, V_THETA
         yellow_norm = np.array([pos_factor, pos_factor, v_factor, v_factor, w_factor])
 
-        return ball_norm, blue_norm, yellow_norm
+        target_norm = np.array([1 / max_x, 1 / max_y])
+        self.max_v = max_v
+        
+        return ball_norm, blue_norm, yellow_norm, target_norm
 
     # -------------------Rewards-------------------
 
@@ -474,7 +477,9 @@ class VSSHRLEnv(gym.Env):
         if not self.hierarchical:
             return 0
 
-        last_rbt = np.array([self.last_frame.robots_blue[id].x, self.last_frame.robots_blue[id].y])
+        last_rbt = np.array(
+            [self.last_frame.robots_blue[id].x, self.last_frame.robots_blue[id].y]
+        )
 
         rbt = np.array([self.frame.robots_blue[id].x, self.frame.robots_blue[id].y])
         target = self.targets[id]

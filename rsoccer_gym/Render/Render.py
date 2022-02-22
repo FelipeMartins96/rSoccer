@@ -134,12 +134,9 @@ class RCGymRender:
             self.yellow_robots[i].set_rotation(np.deg2rad(yellow.theta))
 
         if targets is not None:
-            max_x = self.screen_dimensions["right"] - self.field.ball_radius
-            max_y = self.screen_dimensions["top"] - self.field.ball_radius
-            clipped_targets = np.clip(targets,(-max_x, -max_y),(max_x, max_y))
             tag_id_colors = {0 : TAG_GREEN, 1 : TAG_PURPLE, 2 : TAG_RED}
 
-            for i, target in enumerate(clipped_targets):
+            for i, target in enumerate(targets):
                 t = rendering.make_circle(self.field.ball_radius, filled=True)
                 t._color.vec4 = (*tag_id_colors[i], 0.9)
                 t.add_attr(rendering.Transform(translation=(target[0], target[1])))
