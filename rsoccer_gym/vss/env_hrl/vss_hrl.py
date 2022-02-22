@@ -31,6 +31,7 @@ class VSSHRLEnv(gym.Env):
         n_robots_yellow,
         time_step,
         hierarchical=True,
+        pre_training=False,
         m_w_goal=10,
         m_w_ball_grad=40,
         m_w_move=0,
@@ -68,6 +69,7 @@ class VSSHRLEnv(gym.Env):
             self.target_norm,
         ) = self._get_obs_norms()
         self.hierarchical = hierarchical
+        self.pre_training = pre_training
 
         self.m_reward_weights = np.array(
             [m_w_goal, m_w_ball_grad, m_w_move, m_w_collision, m_w_energy]
@@ -347,6 +349,8 @@ class VSSHRLEnv(gym.Env):
 
         # Randomize ball position
         self.key, x, y, theta = randomize_pos(self.key)
+        if self.pre_training:
+            x, y = self.field.width, 0
         frame.ball = Ball(x=x, y=y)
 
         tree = KDTree()
