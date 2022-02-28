@@ -151,7 +151,8 @@ class VSSHRLEnv(gym.Env):
         m_observation_space = gym.spaces.Box(
             low=-self.NORM_BOUNDS,
             high=self.NORM_BOUNDS,
-            shape=(4 + (self.n_robots_blue * 7) + (self.n_robots_yellow * 5),),
+            # shape=(4 + (self.n_robots_blue * 7) + (self.n_robots_yellow * 5),),
+            shape=(4 + (self.n_robots_blue * 7),),
             dtype=np.float32,
         )
 
@@ -273,7 +274,7 @@ class VSSHRLEnv(gym.Env):
             [
                 self.observations.ball,
                 self.observations.blue.flatten(),
-                self.observations.yellow.flatten(),
+                # self.observations.yellow.flatten(),
             ]
         )
 
