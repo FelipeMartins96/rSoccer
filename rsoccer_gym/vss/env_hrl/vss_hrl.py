@@ -51,7 +51,7 @@ class VSSHRLEnv(gym.Env):
         self.sim = RSimVSS(
             field_type=field_type,
             n_robots_blue=n_robots_blue,
-            n_robots_yellow=n_robots_yellow,
+            n_robots_yellow=0,
             time_step_ms=int(time_step * 1000),
         )
 
@@ -124,7 +124,7 @@ class VSSHRLEnv(gym.Env):
             from rsoccer_gym.Render import RCGymRender
 
             self.view = RCGymRender(
-                self.n_robots_blue, self.n_robots_yellow, self.field, simulator='vss'
+                self.n_robots_blue, 0, self.field, simulator='vss'
             )
 
         return self.view.render_frame(
@@ -151,8 +151,7 @@ class VSSHRLEnv(gym.Env):
         m_observation_space = gym.spaces.Box(
             low=-self.NORM_BOUNDS,
             high=self.NORM_BOUNDS,
-            # shape=(4 + (self.n_robots_blue * 7) + (self.n_robots_yellow * 5),),
-            shape=(4 + (self.n_robots_blue * 7),),
+            shape=(4 + (self.n_robots_blue * 7) + (self.n_robots_yellow * 5),),
             dtype=np.float32,
         )
 
@@ -257,7 +256,7 @@ class VSSHRLEnv(gym.Env):
                 Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
             )
 
-        for i in range(self.n_robots_yellow):
+        for i in range(0):
             j = i + self.n_robots_blue
             v_wheel0, v_wheel1 = actions[j]
             commands.append(
@@ -274,6 +273,7 @@ class VSSHRLEnv(gym.Env):
             [
                 self.observations.ball,
                 self.observations.blue.flatten(),
+                self.fake_yellow.flatten(),
                 # self.observations.yellow.flatten(),
             ]
         )
@@ -324,13 +324,13 @@ class VSSHRLEnv(gym.Env):
                     self.frame.robots_yellow[i].v_y,
                     self.frame.robots_yellow[i].v_theta,
                 ]
-                for i in range(self.n_robots_yellow)
+                for i in range(0)
             ]
         )
         ball_norm = ball_np * self.ball_norm
         blue_norm = blue_np * self.blue_norm
         yellow_norm = (
-            yellow_np * self.yellow_norm if self.n_robots_yellow else yellow_np
+            yellow_np * self.yellow_norm if 0 else yellow_np
         )
 
         return Observations(ball=ball_norm, blue=blue_norm, yellow=yellow_norm)
@@ -374,7 +374,10 @@ class VSSHRLEnv(gym.Env):
             frame.robots_blue[i] = Robot(x=x, y=pos[1], theta=theta)
 
         # Randomize yellow robots
-        for i in range(self.n_robots_yellow):
+        self.key, k = jax.random.split(self.key)
+        self.fake_yellow = jax.random.uniform(k, (self.n_robots_yellow, 5), minval=-1)
+        self.fake_yellow = self.fake_yellow * jax.numpy.array([1.0, 1.0, 0.0, 0.0, 0.0])
+        for i in range(0):
             while tree.get_nearest(pos)[1] < min_dist:
                 self.key, x, y, theta = randomize_pos(self.key)
                 pos = (x, y)
