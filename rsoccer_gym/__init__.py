@@ -45,7 +45,7 @@ register(
     max_episode_steps=600,
 )
 register(
-    id='VSSHRL-v2',
+    id='VSSHRL-v3',
     entry_point='rsoccer_gym.vss.env_hrl:VSSHRLEnv',
     kwargs={
         'field_type': 0,
