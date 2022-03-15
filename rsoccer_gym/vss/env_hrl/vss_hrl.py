@@ -441,6 +441,20 @@ class VSSHRLEnv(gym.Env):
         return last_dist - dist
 
     def _rw_move(self):
+        ball = np.array([self.frame.ball.x, self.frame.ball.y])
+        robot = np.array([self.frame.robots_blue[0].x,
+                          self.frame.robots_blue[0].y])
+        robot_vel = np.array([self.frame.robots_blue[0].v_x,
+                              self.frame.robots_blue[0].v_y])
+        robot_ball = ball - robot
+        robot_ball = robot_ball/np.linalg.norm(robot_ball)
+
+        move_reward = np.dot(robot_ball, robot_vel)
+
+        move_reward = np.clip(move_reward / 0.4, -5.0, 5.0)
+        return move_reward
+
+    def __rw_move(self):
         """
         move is given by min dist between blue robots and ball
         """
