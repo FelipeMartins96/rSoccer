@@ -51,7 +51,7 @@ class VSSHRLEnv(gym.Env):
         self.sim = RSimVSS(
             field_type=field_type,
             n_robots_blue=n_robots_blue,
-            n_robots_yellow=0,
+            n_robots_yellow=n_robots_yellow,
             time_step_ms=int(time_step * 1000),
         )
 
@@ -124,7 +124,7 @@ class VSSHRLEnv(gym.Env):
             from rsoccer_gym.Render import RCGymRender
 
             self.view = RCGymRender(
-                self.n_robots_blue, 0, self.field, simulator='vss'
+                self.n_robots_blue, self.n_robots_yellow, self.field, simulator='vss'
             )
 
         return self.view.render_frame(
@@ -256,7 +256,7 @@ class VSSHRLEnv(gym.Env):
                 Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
             )
 
-        for i in range(0):
+        for i in range(self.n_robots_yellow):
             j = i + self.n_robots_blue
             v_wheel0, v_wheel1 = actions[j]
             commands.append(
@@ -377,7 +377,7 @@ class VSSHRLEnv(gym.Env):
         self.key, k = jax.random.split(self.key)
         self.fake_yellow = jax.random.uniform(k, (self.n_robots_yellow, 5), minval=-1)
         self.fake_yellow = self.fake_yellow * jax.numpy.array([1.0, 1.0, 0.0, 0.0, 0.0])
-        for i in range(0):
+        for i in range(self.n_robots_yellow):
             while tree.get_nearest(pos)[1] < min_dist:
                 self.key, x, y, theta = randomize_pos(self.key)
                 pos = (x, y)
