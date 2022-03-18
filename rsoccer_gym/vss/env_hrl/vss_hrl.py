@@ -59,7 +59,7 @@ class VSSHRLEnv(gym.Env):
         self.field = self.sim.get_field_params()
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
-        self.n_controlled_robots = n_robots_blue
+        self.n_controlled_robots = 1
         self.v_wheel_deadzone = v_wheel_deadzone
         self.view = None
         (
