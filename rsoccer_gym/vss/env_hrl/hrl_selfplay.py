@@ -45,6 +45,12 @@ class VSSHRLSelfEnv(gym.Env):
             shape=((n_robots_blue + n_robots_yellow) * 2,),
             dtype=np.float32,
         )
+        self.observation_space = gym.spaces.Box(
+            low=-1.2,
+            high=1.2,
+            shape=(2,(n_robots_blue + n_robots_yellow) * 7 + 4),
+            dtype=np.float32,
+        )
         self.sim = RSimVSS(
             field_type=field_type,
             n_robots_blue=n_robots_blue,
@@ -112,7 +118,7 @@ class VSSHRLSelfEnv(gym.Env):
             Obs(self._get_obs_m(), self._get_obs_w() if self.hierarchical else None),
             Rewards(m_reward, w_rewards),
             done,
-            self.info if done else None,
+            self.info if done else {},
         )
 
     def render(self, mode='human'):
