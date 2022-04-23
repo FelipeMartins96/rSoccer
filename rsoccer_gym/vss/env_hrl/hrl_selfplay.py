@@ -5,14 +5,13 @@ from rsoccer_gym.Simulators.rsim import RSimVSS
 from rsoccer_gym.Entities import Frame, Ball, Robot
 from rsoccer_gym.Utils import KDTree
 from collections import namedtuple
-import math
 
 Observations = namedtuple("Observations", ["ball", "blue", "yellow"])
 Rewards = namedtuple("Rewards", ["manager", "workers"])
 Obs = namedtuple("Obs", ['manager', 'workers'])
 
 
-class VSSHRLEnv(gym.Env):
+class VSSHRLSelfEnv(gym.Env):
     """
     VSS Environment with hierarchical structure
     One manager sends the target pos for every worker
@@ -37,7 +36,6 @@ class VSSHRLEnv(gym.Env):
         m_w_goal=10,
         m_w_ball_grad=40,
         w_w_dist=1,
-        w_w_energy=0,
         v_wheel_deadzone=0.05,
     ):
         # Environment receives action for all robots
@@ -58,13 +56,12 @@ class VSSHRLEnv(gym.Env):
         self.field = self.sim.get_field_params()
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
-        self.n_controlled_robots = 1
+        self.n_controlled_robots = 3
         self.v_wheel_deadzone = v_wheel_deadzone
         self.view = None
         (
             self.ball_norm,
-            self.blue_norm,
-            self.yellow_norm,
+            self.rbt_norm,
             self.target_norm,
         ) = self._get_obs_norms()
         self.mirror_entity = np.array([-1, -1, -1, -1, -1, -1, 1])
@@ -93,7 +90,7 @@ class VSSHRLEnv(gym.Env):
         """
         assert self.is_set_action_m or not self.hierarchical, 'Manager action not set'
 
-        # Denormalize actions, transform to v_wheel speeds
+        # revert actions normalization, transform to v_wheel speeds
         commands = self._get_commands(w_actions)
         self.sent_commands = commands
         self.sim.send_commands(commands)
@@ -115,7 +112,7 @@ class VSSHRLEnv(gym.Env):
             Obs(self._get_obs_m(), self._get_obs_w() if self.hierarchical else None),
             Rewards(m_reward, w_rewards),
             done,
-            self.info,
+            self.info if done else None,
         )
 
     def render(self, mode='human'):
@@ -128,58 +125,52 @@ class VSSHRLEnv(gym.Env):
 
         return self.view.render_frame(
             self.sim.get_frame(),
-            None if self.targets is None else self.targets,
+            None if self.targets is None else self.targets.reshape((2, -1, 2)),
             return_rgb_array=mode == 'rgb_array',
         )
 
     # -------------------rSoccer Core-------------------
     def _get_commands(self, acts):
-        # Denormalize
+        # revert normalization
         dn_acts = np.clip(acts, -1, 1) * self.max_v
+
         # Process deadzone
         pc_acts = dn_acts * (
             (dn_acts < -self.v_wheel_deadzone) | (dn_acts > self.v_wheel_deadzone)
         )
-        actions = pc_acts.reshape((-1, 2)) / self.field.rbt_wheel_radius
+        actions = pc_acts / self.field.rbt_wheel_radius
 
         commands = []
-        for i in range(self.n_robots_blue):
+        for i in range(self.n_robots_blue + self.n_robots_yellow):
             v_wheel0, v_wheel1 = actions[i]
             commands.append(
-                Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
-            )
-
-        for i in range(self.n_robots_yellow):
-            j = i + self.n_robots_blue
-            v_wheel0, v_wheel1 = actions[j]
-            commands.append(
-                Robot(yellow=True, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1)
+                Robot(
+                    yellow=not i < self.n_robots_blue,
+                    id=i % self.n_robots_blue,
+                    v_wheel0=v_wheel0,
+                    v_wheel1=v_wheel1,
+                )
             )
 
         return commands
 
     def _get_rewards_and_done(self):
         # Manager Rewards
-        m_rewards = np.array(
+        m_rewards_blue = np.array(
             [
                 self._rw_goal() if self.m_reward_weights[0] else 0,
                 self._rw_ball_grad() if self.m_reward_weights[1] else 0,
-                self._rw_move() if self.m_reward_weights[2] else 0,
-                self._rw_collision() if self.m_reward_weights[3] else 0,
-                sum([self._rw_energy(i) for i in range(self.n_controlled_robots)])
-                if self.m_reward_weights[4]
-                else 0,
             ]
         )
+        m_rewards = np.stack([m_rewards_blue, -m_rewards_blue])
 
         # Workers Rewards
         w_rewards = np.array(
             [
                 [
                     self._rw_dist(i) if self.m_reward_weights[0] else 0,
-                    self._rw_energy(i) if self.m_reward_weights[1] else 0,
                 ]
-                for i in range(self.n_controlled_robots)
+                for i in range(2 * self.n_controlled_robots)
             ]
         )
 
@@ -188,20 +179,20 @@ class VSSHRLEnv(gym.Env):
 
         if self.info is None:
             self.info = {
-                'manager_rw': m_rewards,
+                'blue_manager_rw': m_rewards_blue,
                 'workers_rw': w_rewards,
-                'manager_weighted_rw': m_weighted_rewards,
+                'blue_manager_weighted_rw': m_weighted_rewards[0],
                 'workers_weighted_rw': w_weighted_rewards,
             }
         else:
-            self.info['manager_rw'] += m_rewards
+            self.info['blue_manager_rw'] += m_rewards_blue
             self.info['workers_rw'] += w_rewards
-            self.info['manager_weighted_rw'] += m_weighted_rewards
+            self.info['blue_manager_weighted_rw'] += m_weighted_rewards[0]
             self.info['workers_weighted_rw'] += w_weighted_rewards
 
-        done = True if m_rewards[0] != 0 else False
+        done = True if m_rewards_blue[0] != 0 else False
 
-        return m_weighted_rewards.sum(), w_weighted_rewards.sum(axis=1), done
+        return m_weighted_rewards.sum(axis=1), w_weighted_rewards.sum(axis=1), done
 
     def _frame_to_observations(self):
         """
@@ -245,8 +236,8 @@ class VSSHRLEnv(gym.Env):
             ]
         )
         ball_norm = ball_np * self.ball_norm
-        blue_norm = blue_np * self.blue_norm
-        yellow_norm = yellow_np * self.yellow_norm
+        blue_norm = blue_np * self.rbt_norm
+        yellow_norm = yellow_np * self.rbt_norm
 
         return Observations(ball=ball_norm, blue=blue_norm, yellow=yellow_norm)
 
@@ -358,6 +349,10 @@ class VSSHRLEnv(gym.Env):
         assert not self.is_set_action_m, 'Manager action already set'
 
         self.targets = action.reshape((-1, 2)) / self.target_norm
+
+        # revert yellow actions mirror
+        self.targets[-self.n_controlled_robots :] *= -1
+
         self.is_set_action_m = True
 
         return self._get_obs_w()
@@ -392,6 +387,15 @@ class VSSHRLEnv(gym.Env):
                 )
                 for i in range(self.n_controlled_robots)
             ]
+            + [
+                np.concatenate(
+                    [
+                        self.observations.yellow[i],
+                        self.targets[self.n_controlled_robots + i] * self.target_norm,
+                    ]
+                )
+                for i in range(self.n_controlled_robots)
+            ]
         )
 
     def _get_obs_norms(self):
@@ -412,16 +416,14 @@ class VSSHRLEnv(gym.Env):
         # 4 obs: X, Y, V_X, V_Y
         ball_norm = np.array([pos_factor, pos_factor, v_factor, v_factor])
         # 7 obs: X, Y, cos(THETA), sin(THETA), V_X, V_Y, V_THETA
-        blue_norm = np.array(
+        rbt_norm = np.array(
             [pos_factor, pos_factor, 1, 1, v_factor, v_factor, w_factor]
         )
-        # 5 obs: X, Y, V_X, V_Y, V_THETA
-        yellow_norm = np.array([pos_factor, pos_factor, v_factor, v_factor, w_factor])
 
         target_norm = np.array([1 / max_x, 1 / max_y])
         self.max_v = max_v
 
-        return ball_norm, blue_norm, yellow_norm, target_norm
+        return ball_norm, rbt_norm, target_norm
 
     # -------------------Rewards-------------------
 
@@ -455,11 +457,18 @@ class VSSHRLEnv(gym.Env):
         if not self.hierarchical:
             return 0
 
-        last_rbt = np.array(
-            [self.last_frame.robots_blue[id].x, self.last_frame.robots_blue[id].y]
-        )
+        if id < self.n_controlled_robots:
+            robots = self.frame.robots_blue
+            last_robots = self.last_frame.robots_blue
+        else:
+            robots = self.frame.robots_yellow
+            last_robots = self.last_frame.robots_yellow
 
-        rbt = np.array([self.frame.robots_blue[id].x, self.frame.robots_blue[id].y])
+        i = id % self.n_controlled_robots
+
+        last_rbt = np.array([last_robots[i].x, last_robots[i].y])
+
+        rbt = np.array([robots[i].x, robots[i].y])
         target = self.targets[id]
         dist = np.linalg.norm(rbt - target)
         last_dist = np.linalg.norm(last_rbt - target)

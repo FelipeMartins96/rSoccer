@@ -135,12 +135,19 @@ class RCGymRender:
 
         if targets is not None:
             tag_id_colors = {0 : TAG_GREEN, 1 : TAG_PURPLE, 2 : TAG_RED}
-
-            for i, target in enumerate(targets):
-                t = rendering.make_circle(self.field.ball_radius, filled=True)
-                t._color.vec4 = (*tag_id_colors[i], 0.9)
-                t.add_attr(rendering.Transform(translation=(target[0], target[1])))
-                self.screen.add_onetime(t)
+            tag_team_colors = {0 : TAG_BLUE, 1 : TAG_YELLOW}
+            
+            for j, t_targets in enumerate(targets):
+                for i, target in enumerate(t_targets):
+                    t = rendering.make_circle(self.field.ball_radius, filled=True)
+                    t._color.vec4 = (*tag_id_colors[i], 0.8)
+                    t.add_attr(rendering.Transform(translation=(target[0], target[1])))
+                    self.screen.add_onetime(t)
+                    t = rendering.make_circle(self.field.ball_radius, filled=False)
+                    t._color.vec4 = (*tag_team_colors[j], 0.8)
+                    t.set_linewidth(self.linewidth)
+                    t.add_attr(rendering.Transform(translation=(target[0], target[1])))
+                    self.screen.add_onetime(t)
 
         return self.screen.render(return_rgb_array=return_rgb_array)
 
