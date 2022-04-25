@@ -118,7 +118,7 @@ class VSSHRLSelfEnv(gym.Env):
             Obs(self._get_obs_m(), self._get_obs_w() if self.hierarchical else None),
             Rewards(m_reward, w_rewards),
             done,
-            self.info if done else {},
+            self.info,
         )
 
     def render(self, mode='human'):
