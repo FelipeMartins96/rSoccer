@@ -37,6 +37,7 @@ class VSSHRLSelfEnv(gym.Env):
         m_w_ball_grad=40,
         w_w_dist=1,
         v_wheel_deadzone=0.05,
+        n_controlled_robots=3,
     ):
         # Environment receives action for all robots
         self.action_space = gym.spaces.Box(
@@ -62,7 +63,7 @@ class VSSHRLSelfEnv(gym.Env):
         self.field = self.sim.get_field_params()
         self.n_robots_blue = n_robots_blue
         self.n_robots_yellow = n_robots_yellow
-        self.n_controlled_robots = 3
+        self.n_controlled_robots = n_controlled_robots
         self.v_wheel_deadzone = v_wheel_deadzone
         self.view = None
         (
