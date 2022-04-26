@@ -129,7 +129,7 @@ class VSSHRLEnv(gym.Env):
 
         return self.view.render_frame(
             self.sim.get_frame(),
-            None if self.targets is None else self.targets,
+            None if self.targets is None else self.targets.reshape((1, -1, 2)),
             return_rgb_array=mode == 'rgb_array',
         )
 
