@@ -10,6 +10,11 @@ register(id='VSSMA-v0',
          max_episode_steps=1200
          )
 
+register(id='VSSTNMT-v0',
+         entry_point='rsoccer_gym.vss.env_tnmt:VSSTNMTEnv',
+         max_episode_steps=400
+         )
+         
 register(id='VSSJAL-v0',
          entry_point='rsoccer_gym.vss.env_jal:VSSJALEnv',
          max_episode_steps=1200
