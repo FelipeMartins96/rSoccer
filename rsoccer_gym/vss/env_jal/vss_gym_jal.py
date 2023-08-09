@@ -133,7 +133,6 @@ class VSSJALEnv(VSSBaseEnv):
             if self.last_frame is not None:
                 # Calculate ball potential
                 grad_ball_potential = self._ball_grad()
-                self.reward_shaping_total['ball_grad'] += w_ball_grad * grad_ball_potential  # noqa
                 move_rewards = []
                 energy_penalties = []
 
