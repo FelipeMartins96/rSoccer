@@ -98,7 +98,6 @@ class VSSEnv(VSSBaseEnv):
         observation.append(self.norm_v(self.frame.ball.v_x))
         observation.append(self.norm_v(self.frame.ball.v_y))
 
-        print(self.actions)
         for i in range(self.n_robots_blue):
             observation.append(self.norm_pos(self.frame.robots_blue[i].x))
             observation.append(self.norm_pos(self.frame.robots_blue[i].y))
