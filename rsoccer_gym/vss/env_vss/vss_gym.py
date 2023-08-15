@@ -60,7 +60,7 @@ class VSSEnv(VSSBaseEnv):
                                            shape=(2, ), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-self.NORM_BOUNDS,
                                                 high=self.NORM_BOUNDS,
-                                                shape=(40, ), dtype=np.float32)
+                                                shape=(52, ), dtype=np.float32)
 
         # Initialize Class Atributes
         self.previous_ball_potential = None
@@ -98,22 +98,27 @@ class VSSEnv(VSSBaseEnv):
         observation.append(self.norm_v(self.frame.ball.v_x))
         observation.append(self.norm_v(self.frame.ball.v_y))
 
+        print(self.actions)
         for i in range(self.n_robots_blue):
             observation.append(self.norm_pos(self.frame.robots_blue[i].x))
             observation.append(self.norm_pos(self.frame.robots_blue[i].y))
-            observation.append(
-                np.sin(np.deg2rad(self.frame.robots_blue[i].theta))
-            )
-            observation.append(
-                np.cos(np.deg2rad(self.frame.robots_blue[i].theta))
-            )
+            observation.append(np.cos(np.deg2rad(self.frame.robots_blue[i].theta)))
+            observation.append(np.sin(np.deg2rad(self.frame.robots_blue[i].theta)))
             observation.append(self.norm_v(self.frame.robots_blue[i].v_x))
             observation.append(self.norm_v(self.frame.robots_blue[i].v_y))
             observation.append(self.norm_w(self.frame.robots_blue[i].v_theta))
+            if self.actions:
+                observation.append(self.actions[i][0])
+                observation.append(self.actions[i][1])
+            else:
+                observation.append(0)
+                observation.append(0)
 
         for i in range(self.n_robots_yellow):
             observation.append(self.norm_pos(self.frame.robots_yellow[i].x))
             observation.append(self.norm_pos(self.frame.robots_yellow[i].y))
+            observation.append(np.cos(np.deg2rad(self.frame.robots_yellow[i].theta)))
+            observation.append(np.sin(np.deg2rad(self.frame.robots_yellow[i].theta)))
             observation.append(self.norm_v(self.frame.robots_yellow[i].v_x))
             observation.append(self.norm_v(self.frame.robots_yellow[i].v_y))
             observation.append(
