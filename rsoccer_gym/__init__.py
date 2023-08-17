@@ -12,7 +12,7 @@ register(id='VSSMA-v0',
 
 register(id='VSSTNMT-v0',
          entry_point='rsoccer_gym.vss.env_tnmt:VSSTNMTEnv',
-         max_episode_steps=400
+         max_episode_steps=800
          )
          
 register(id='VSSJAL-v0',
