@@ -186,9 +186,9 @@ class VSSMAEnv(VSSBaseEnv):
     def _calculate_reward_and_done(self):
         reward = {f'robot_{i}': 0 for i in range(self.n_robots_control)}
         goal = False
-        w_move = 0.01
-        w_ball_grad = 0.08
-        w_energy = 1e-5
+        w_ball_grad = 0.0667
+        w_move = 0.0125
+        w_energy = 1e-4
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'goal_score': 0, 'ball_grad': 0,
                                          'goals_blue': 0, 'goals_yellow': 0}

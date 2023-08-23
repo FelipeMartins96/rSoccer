@@ -110,9 +110,9 @@ class VSSJALEnv(VSSBaseEnv):
     def _calculate_reward_and_done(self):
         reward = 0
         goal = False
-        w_move = 0.01
-        w_ball_grad = 0.08
-        w_energy = 1e-5
+        w_ball_grad = 0.0667
+        w_move = 0.0125
+        w_energy = 1e-4
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'goal_score': 0, 'move': 0,
                                          'ball_grad': 0, 'energy': 0,
