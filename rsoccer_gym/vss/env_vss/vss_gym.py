@@ -153,9 +153,9 @@ class VSSEnv(VSSBaseEnv):
     def _calculate_reward_and_done(self):
         reward = 0
         goal = False
-        w_ball_grad = 0.0667
-        w_move = 0.0125
-        w_energy = 1e-4
+        w_ball_grad = 0.667
+        w_move = 0.125
+        w_energy = 1e-3
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'goal_score': 0, 'move': 0,
                                          'ball_grad': 0, 'energy': 0,
@@ -165,12 +165,12 @@ class VSSEnv(VSSBaseEnv):
         if self.frame.ball.x > (self.field.length / 2):
             self.reward_shaping_total['goal_score'] += 1
             self.reward_shaping_total['goals_blue'] += 1
-            reward = 10
+            reward = 100
             goal = True
         elif self.frame.ball.x < -(self.field.length / 2):
             self.reward_shaping_total['goal_score'] -= 1
             self.reward_shaping_total['goals_yellow'] += 1
-            reward = -10
+            reward = -100
             goal = True
         else:
 
